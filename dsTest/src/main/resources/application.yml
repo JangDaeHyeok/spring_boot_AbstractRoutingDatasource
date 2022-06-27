@@ -1,0 +1,13 @@
+spring:
+  datasource:
+    hikari:
+      driver-class-name: net.sf.log4jdbc.sql.jdbcapi.DriverSpy
+      jdbc-url: jdbc:log4jdbc:mysql://localhost:3306/test_master?characterEncoding=UTF-8
+      username: root
+      password: 1234
+
+logging:
+  level:
+    web: info
+    root: info
+    com.jdh.dsTest: info

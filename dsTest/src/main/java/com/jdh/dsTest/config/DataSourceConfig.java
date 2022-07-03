@@ -4,30 +4,77 @@ import javax.sql.DataSource;
 
 import org.apache.ibatis.session.SqlSessionFactory;
 import org.mybatis.spring.SqlSessionFactoryBean;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.jdbc.DataSourceBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.DependsOn;
+import org.springframework.context.annotation.Primary;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 
-import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
+import org.springframework.jdbc.datasource.LazyConnectionDataSourceProxy;
+
+import java.util.HashMap;
+import java.util.Map;
 
 @Configuration
 public class DataSourceConfig {
-	
-	// application.yml의 설정 정보를 토대로 HikariCP 설정
-	@Bean
-	@ConfigurationProperties(prefix = "spring.datasource.hikari") // 읽어올 설정 정보의 prefix 지정
-	public HikariConfig hikaryConfig() {
-		return new HikariConfig();
+
+	private static final String MASTER_DATASOURCE = "masterDataSource";
+	private static final String SLAVE_DATASOURCE = "slaveDataSource";
+
+	// mater datavase DataSource
+	@Bean(MASTER_DATASOURCE)
+	@ConfigurationProperties(prefix = "spring.datasource.master.hikari")
+	public DataSource masterDataSource() {
+		return DataSourceBuilder.create()
+				.type(HikariDataSource.class)
+				.build();
 	}
-	
-	// Connection Pool을 관리하는 DataSource 인터페이스 객체 선언
+
+	// slave datavase DataSource
+	@Bean(SLAVE_DATASOURCE)
+	@ConfigurationProperties(prefix = "spring.datasource.slave.hikari")
+	public DataSource slaveDataSource() {
+		return DataSourceBuilder.create()
+				.type(HikariDataSource.class)
+				.build();
+	}
+
+	// routing dataSource Bean
 	@Bean
-	public DataSource dataSource() {
-		return new HikariDataSource(hikaryConfig());
+	@DependsOn({MASTER_DATASOURCE, SLAVE_DATASOURCE})
+	public DataSource routingDataSource (
+			@Qualifier(MASTER_DATASOURCE) DataSource masterDataSource,
+			@Qualifier(SLAVE_DATASOURCE) DataSource slaveDataSource) {
+
+		RoutingDatasource routingDatasource = new RoutingDatasource();
+
+		Map<Object, Object> dataSourceMap = new HashMap<Object, Object>() {
+			{
+				put("master", masterDataSource);
+				put("slave", slaveDataSource);
+			}
+		};
+
+		// dataSource Map 설정
+		routingDatasource.setTargetDataSources(dataSourceMap);
+		// default DataSource는 master로 설정
+		routingDatasource.setDefaultTargetDataSource(masterDataSource);
+
+		return routingDatasource;
+	}
+
+	// seting lazy connection
+	@Bean
+	@Primary
+	@DependsOn("routingDataSource")
+	public LazyConnectionDataSourceProxy dataSource(DataSource routingDataSource) {
+		return new LazyConnectionDataSourceProxy(routingDataSource);
 	}
 	
 	// SqlSessionTemplate에서 사용할 SqlSession을 생성하는 Factory

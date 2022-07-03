@@ -17,6 +17,7 @@ public class TestController {
 	
 	@Test
 	public void test() throws Exception {
-		log.info(service.getTest());
+		log.info("Transaction Read Only 미적용 :: {}", service.getTest());
+		log.info("Transaction Read Only 적용 :: {}", service.getTestReadOnly());
 	}
 }

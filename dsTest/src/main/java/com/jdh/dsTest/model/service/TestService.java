@@ -10,8 +10,12 @@ import org.springframework.transaction.annotation.Transactional;
 public class TestService {
 	@Autowired TestMapper testMapper;
 
-	@Transactional(readOnly = true)
 	public String getTest() throws Exception {
+		return testMapper.selectTest();
+	}
+
+	@Transactional(readOnly = true)
+	public String getTestReadOnly() throws Exception {
 		return testMapper.selectTest();
 	}
 }
